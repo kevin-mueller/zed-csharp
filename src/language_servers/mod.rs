@@ -1,3 +1,4 @@
+pub mod nuget;
 pub mod html;
 pub mod roslyn_official;
 
