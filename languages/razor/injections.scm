@@ -9,5 +9,4 @@
 
 ; HTML elements get HTML highlighting
 ((element) @injection.content
-  (#set! injection.language "html")
-  (#set! injection.combined))
+  (#set! injection.language "html"))
