@@ -3,7 +3,6 @@
 ;; Methods
 
 (method_declaration name: (identifier) @function)
-(_ function: (identifier) @function)
 (local_function_statement name: (identifier) @function)
 
 ;; Types
@@ -14,7 +13,6 @@
 (struct_declaration (identifier) @type)
 (record_declaration (identifier) @type)
 (namespace_declaration name: (identifier) @module)
-(file_scoped_namespace_declaration name: (identifier) @module)
 
 (generic_name (identifier) @type)
 (type_parameter (identifier) @property.definition)
@@ -33,12 +31,7 @@
 (predefined_type) @type.builtin
 
 ;; Enum
-
 (enum_member_declaration (identifier) @property.definition)
-
-;; Properties
-
-(property_declaration name: (identifier) @property)
 
 ;; Literals
 
@@ -55,7 +48,7 @@
   (interpolated_string_expression)
   (interpolation_start)
   (interpolation_quote)
-] @string
+ ] @string
 
 (escape_sequence) @string.escape
 
@@ -128,9 +121,9 @@
   "{"
   "}"
   (interpolation_brace)
-] @punctuation.bracket
+]  @punctuation.bracket
 
-;; Keywords — modifiers / misc
+;; Keywords
 
 [
   (modifier)
@@ -138,111 +131,68 @@
   (implicit_type)
 ] @keyword
 
-;; Keywords — type declarations
-
-[
-  "class"
-  "struct"
-  "interface"
-  "enum"
-  "record"
-  "delegate"
-] @keyword.type
-
-;; Keywords — control flow: conditional
-
-[
-  "if"
-  "else"
-  "switch"
-  "case"
-  "default"
-  "when"
-] @keyword.conditional
-
-;; Keywords — control flow: loops
-
-[
-  "for"
-  "foreach"
-  "while"
-  "do"
-  "in"
-] @keyword.repeat
-
-;; Keywords — control flow: exception handling
-
-[
-  "try"
-  "catch"
-  "finally"
-  "throw"
-] @keyword.exception
-
-;; Keywords — control flow: return / jump
-
-[
-  "return"
-  "break"
-  "continue"
-  "goto"
-  "yield"
-] @keyword.return
-
-;; Keywords — imports / namespace
-
-[
-  "using"
-  "namespace"
-  "global"
-] @keyword.import
-
-;; Keywords — async
-
-[
-  "async"
-  "await"
-] @keyword.coroutine
-
-;; Keywords — operators / allocation
-
-[
-  "new"
-  "sizeof"
-  "stackalloc"
-  "typeof"
-  "is"
-  "as"
-  "with"
-] @keyword.operator
-
-;; Keywords — misc
-
 [
   "add"
   "alias"
+  "as"
   "base"
+  "break"
+  "case"
+  "catch"
   "checked"
+  "class"
+  "continue"
+  "default"
+  "delegate"
+  "do"
+  "else"
+  "enum"
   "event"
   "explicit"
   "extern"
-  "from"
-  "get"
+  "finally"
+  "for"
+  "foreach"
+  "global"
+  "goto"
+  "if"
   "implicit"
-  "init"
-  "let"
+  "interface"
+  "is"
   "lock"
+  "namespace"
   "notnull"
   "operator"
-  "out"
   "params"
-  "ref"
+  "return"
   "remove"
-  "select"
-  "set"
+  "sizeof"
+  "stackalloc"
   "static"
+  "struct"
+  "switch"
+  "throw"
+  "try"
+  "typeof"
   "unchecked"
+  "using"
+  "while"
+  "new"
+  "await"
+  "in"
+  "yield"
+  "get"
+  "set"
+  "when"
+  "out"
+  "ref"
+  "from"
   "where"
+  "select"
+  "record"
+  "init"
+  "with"
+  "let"
 ] @keyword
 
 ;; Attribute
