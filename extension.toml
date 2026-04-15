@@ -76,7 +76,6 @@ kind = "process:exec"
 command = "echo"
 args = ["**"]
 
-# Used to run `csharp-language-server --download` after an update
 [[capabilities]]
 kind = "process:exec"
 command = "*"
