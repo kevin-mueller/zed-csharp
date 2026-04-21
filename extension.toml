@@ -34,7 +34,7 @@ commit = "cac6d5fb595f5811a076336682d5d595ac1c9e85"
 
 [grammars.razor]
 repository = "https://github.com/tris203/tree-sitter-razor"
-commit = "1e8ec29b7179329ce7cffcfae2c5347e8a00f7cf"
+commit = "a3399c26610817c6d32c7643793caf3729cfb6d2"
 
 [grammars.xml]
 repository = "https://github.com/tree-sitter-grammars/tree-sitter-xml"
