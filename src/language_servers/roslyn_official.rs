@@ -1,6 +1,20 @@
-use zed_extension_api::{self as zed, serde_json, settings::LspSettings, LanguageServerId, Result};
+use std::sync::OnceLock;
+use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
 pub struct RoslynOfficial {}
+
+static DOTNET_ROOT_CACHE: OnceLock<String> = OnceLock::new();
+type EnvVars = Vec<(String, String)>;
+
+fn with_optional_env(
+    command: zed_extension_api::process::Command,
+    dotnet_env: Option<&EnvVars>,
+) -> zed_extension_api::process::Command {
+    match dotnet_env {
+        Some(env_vars) => command.envs(env_vars.clone()),
+        None => command,
+    }
+}
 
 impl RoslynOfficial {
     pub const LANGUAGE_SERVER_ID: &'static str = "roslyn-official";
@@ -18,25 +32,42 @@ impl RoslynOfficial {
         else {
             return Err(format!("Unable to load settings"));
         };
+        let use_worktree_dotnet_env = Self::use_worktree_dotnet_env(&lsp_settings);
+        let dotnet_env = if use_worktree_dotnet_env {
+            Some(worktree.shell_env())
+        } else {
+            None
+        };
 
         // Build arguments list
         let base_args = vec!["--stdio".to_string(), "--autoLoadProjects".to_string()];
 
-        let razor_args = Self::install_or_update_razor(lsp_settings, worktree, language_server_id)?;
+        let razor_args =
+            Self::install_or_update_razor(lsp_settings, language_server_id, dotnet_env.as_ref())?;
 
         let final_args = match razor_args {
             Some(x) => base_args.into_iter().chain(x).collect(),
             None => base_args,
         };
 
+        // Resolve DOTNET_ROOT from the SDK path so the LSP process finds
+        // the correct .NET runtime, even if the worktree pins an older SDK.
+        let env = if let Some(root) = Self::resolve_dotnet_root(dotnet_env.as_ref()) {
+            vec![("DOTNET_ROOT".to_string(), root)]
+        } else {
+            vec![]
+        };
+
         // Try to find roslyn-language-server in PATH
         if let Some(path) = worktree.which("roslyn-language-server") {
             zed_extension_api::set_language_server_installation_status(
                 language_server_id,
-                &zed::LanguageServerInstallationStatus::Downloading,
+                &zed::LanguageServerInstallationStatus::CheckingForUpdate,
             );
 
-            update_roslyn_server()?;
+            if let Err(error) = update_roslyn_server(dotnet_env.as_ref()) {
+                println!("Unable to update roslyn-language-server: {}", error);
+            }
 
             zed_extension_api::set_language_server_installation_status(
                 language_server_id,
@@ -46,7 +77,7 @@ impl RoslynOfficial {
             return Ok(zed::Command {
                 command: path,
                 args: final_args,
-                env: Default::default(),
+                env: env,
             });
         } else {
             zed_extension_api::set_language_server_installation_status(
@@ -54,14 +85,19 @@ impl RoslynOfficial {
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
 
-            download_roslyn_server()?;
+            download_roslyn_server(dotnet_env.as_ref())?;
 
             // check again
             if let Some(path) = worktree.which("roslyn-language-server") {
+                zed_extension_api::set_language_server_installation_status(
+                    language_server_id,
+                    &zed::LanguageServerInstallationStatus::None,
+                );
+
                 return Ok(zed::Command {
                     command: path,
                     args: final_args,
-                    env: Default::default(),
+                    env: env,
                 });
             }
         }
@@ -71,38 +107,96 @@ impl RoslynOfficial {
         ))
     }
 
-    fn find_dotnet_sdk_path(worktree: &zed::Worktree) -> Result<(String, String), String> {
-        // Run `dotnet --list-sdks` to get all installed SDKs
-        let env_vars = worktree.shell_env();
-        let output = zed_extension_api::process::Command::new("dotnet")
-            .arg("--list-sdks")
-            .envs(env_vars)
-            .output()?;
+    fn use_worktree_dotnet_env(lsp_settings: &LspSettings) -> bool {
+        lsp_settings
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.get("use_worktree_dotnet_env"))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+    }
+
+    fn resolve_dotnet_root(dotnet_env: Option<&EnvVars>) -> Option<String> {
+        if dotnet_env.is_none() {
+            return Self::cached_dotnet_root();
+        }
+        Self::find_dotnet_root(dotnet_env)
+    }
+
+    fn cached_dotnet_root() -> Option<String> {
+        if let Some(root) = DOTNET_ROOT_CACHE.get() {
+            return Some(root.clone());
+        }
+
+        let root = Self::find_dotnet_root(None)?;
+        let _ = DOTNET_ROOT_CACHE.set(root.clone());
+        Some(root)
+    }
+
+    /// Resolve DOTNET_ROOT from the active dotnet installation.
+    /// Uses `dotnet --info` and derives the root from "Base Path".
+    fn find_dotnet_root(dotnet_env: Option<&EnvVars>) -> Option<String> {
+        let mut command = with_optional_env(
+            zed_extension_api::process::Command::new("dotnet").arg("--info"),
+            dotnet_env,
+        );
+        let output = command.output().ok()?;
+
+        if output.status != Some(0) {
+            return None;
+        }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        let base_path = stdout
+            .lines()
+            .find_map(|line| line.trim_start().strip_prefix("Base Path:"))
+            .map(|value| value.trim())?;
 
-        // Parse the output to get the latest SDK version
-        // Format: "10.0.100 [/home/user/.dotnet/sdk]"
-        let last_line = stdout.lines().last();
-        if last_line.is_none() {
-            return Err(format!("Unable to parse dotnet sdk info output {}", stdout));
+        let root = std::path::Path::new(base_path).parent()?.parent()?;
+        Some(root.to_string_lossy().to_string())
+    }
+
+    fn find_dotnet_sdk_path(dotnet_env: Option<&EnvVars>) -> Result<(String, String), String> {
+        let mut sdk_list_command = with_optional_env(
+            zed_extension_api::process::Command::new("dotnet").arg("--list-sdks"),
+            dotnet_env,
+        );
+        let sdks_output = sdk_list_command.output()?;
+        if sdks_output.status != Some(0) {
+            return Err(format!(
+                "Unable to list installed dotnet SDKs.\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&sdks_output.stdout),
+                String::from_utf8_lossy(&sdks_output.stderr)
+            ));
         }
 
-        let parts: Vec<&str> = last_line.unwrap().split_whitespace().collect();
-        let sdk_version = if parts.len() >= 2 {
-            let version = parts[0];
-            let path = parts[1].trim_matches(|c| c == '[' || c == ']');
-            Some((version.to_string(), path.to_string()))
-        } else {
-            None
-        };
-        if sdk_version.is_none() {
-            return Err(format!("Unable to parse sdk info otput {}", stdout));
+        let stdout = String::from_utf8_lossy(&sdks_output.stdout);
+        let installed_sdks = stdout
+            .lines()
+            .filter_map(|line| {
+                let version = line.split_whitespace().next()?;
+                let start = line.find('[')? + 1;
+                let end = line.rfind(']')?;
+                Some((version.to_string(), line[start..end].to_string()))
+            })
+            .collect::<Vec<_>>();
+
+        if installed_sdks.is_empty() {
+            return Err(format!(
+                "Unable to parse installed dotnet SDKs from output: {}",
+                stdout
+            ));
         }
 
-        return Ok(sdk_version
-            .map(|(version, base_path)| (format!("{}/{}", base_path, version), version))
-            .unwrap());
+        let (sdk_version, sdk_base_path) = installed_sdks
+            .last()
+            .expect("installed_sdks is non-empty after explicit guard");
+
+        let sdk_path = std::path::Path::new(&sdk_base_path)
+            .join(sdk_version)
+            .to_string_lossy()
+            .to_string();
+        Ok((sdk_path, sdk_version.clone()))
     }
 
     // Find the Razor Compiler DLL in the given SDK path
@@ -135,8 +229,8 @@ impl RoslynOfficial {
 
     fn install_or_update_razor(
         lsp_settings: LspSettings,
-        worktree: &zed::Worktree,
         language_server_id: &LanguageServerId,
+        dotnet_env: Option<&EnvVars>,
     ) -> Result<Option<Vec<String>>, String> {
         let lsp_user_settings = match lsp_settings.settings {
             Some(settings) => settings,
@@ -154,9 +248,7 @@ impl RoslynOfficial {
             Some(x) => x,
         };
 
-        let (sdk_path, sdk_version) = Self::find_dotnet_sdk_path(worktree)?;
-
-        let env_vars = worktree.shell_env();
+        let (sdk_path, sdk_version) = Self::find_dotnet_sdk_path(dotnet_env)?;
 
         let directory_exists = zed_extension_api::Command::new("test")
             .arg("-d")
@@ -218,18 +310,25 @@ impl RoslynOfficial {
             }
         }
 
-        let dotnet_build = zed_extension_api::process::Command::new("dotnet")
-            .arg("build")
-            .arg(format!(
-                "{}/src/Razor/src/Microsoft.VisualStudioCode.RazorExtension/Microsoft.VisualStudioCode.RazorExtension.csproj",
-                razor_root_unwrapped
-            ))
-            .arg("--configuration").arg("Release")
-            .envs(env_vars)
-            .output()?;
+        let mut dotnet_build_command = with_optional_env(
+            zed_extension_api::process::Command::new("dotnet")
+                .arg("build")
+                .arg(format!(
+                    "{}/src/Razor/src/Microsoft.VisualStudioCode.RazorExtension/Microsoft.VisualStudioCode.RazorExtension.csproj",
+                    razor_root_unwrapped
+                ))
+                .arg("--configuration")
+                .arg("Release"),
+            dotnet_env,
+        );
+        let dotnet_build = dotnet_build_command.output()?;
 
         if dotnet_build.status.is_none() || dotnet_build.status.unwrap() != 0 {
-            return Err(format!("Unable to build razor extension"));
+            return Err(format!(
+                "Unable to build razor extension.\nstdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&dotnet_build.stdout),
+                String::from_utf8_lossy(&dotnet_build.stderr)
+            ));
         }
 
         // if someone knows a better way to get this dll, i'm all ears
@@ -293,28 +392,48 @@ impl RoslynOfficial {
     }
 }
 
-fn download_roslyn_server() -> Result<(), String> {
-    zed_extension_api::process::Command::new("dotnet")
-        .arg("tool")
-        .arg("install")
-        .arg("--global")
-        .arg("roslyn-language-server")
-        .arg("--prerelease")
-        .arg("--source")
-        .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
-        .output()?;
+fn download_roslyn_server(dotnet_env: Option<&EnvVars>) -> Result<(), String> {
+    let mut command = with_optional_env(
+        zed_extension_api::process::Command::new("dotnet")
+            .arg("tool")
+            .arg("install")
+            .arg("--global")
+            .arg("roslyn-language-server")
+            .arg("--prerelease")
+            .arg("--source")
+            .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json"),
+        dotnet_env,
+    );
+    let output = command.output()?;
+    if output.status != Some(0) {
+        return Err(format!(
+            "Unable to install roslyn-language-server.\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
     Ok(())
 }
 
-fn update_roslyn_server() -> Result<(), String> {
-    zed_extension_api::process::Command::new("dotnet")
-        .arg("tool")
-        .arg("update")
-        .arg("roslyn-language-server")
-        .arg("--global")
-        .arg("--prerelease")
-        .arg("--source")
-        .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
-        .output()?;
+fn update_roslyn_server(dotnet_env: Option<&EnvVars>) -> Result<(), String> {
+    let mut command = with_optional_env(
+        zed_extension_api::process::Command::new("dotnet")
+            .arg("tool")
+            .arg("update")
+            .arg("roslyn-language-server")
+            .arg("--global")
+            .arg("--prerelease")
+            .arg("--source")
+            .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json"),
+        dotnet_env,
+    );
+    let output = command.output()?;
+    if output.status != Some(0) {
+        return Err(format!(
+            "Unable to update roslyn-language-server.\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
     Ok(())
 }
