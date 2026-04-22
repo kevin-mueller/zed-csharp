@@ -300,8 +300,8 @@ fn download_roslyn_server() -> Result<(), String> {
         .arg("--global")
         .arg("roslyn-language-server")
         .arg("--prerelease")
-        // .arg("--source")
-        // .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
+        .arg("--source")
+        .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
         .output()?;
     Ok(())
 }
@@ -313,8 +313,8 @@ fn update_roslyn_server() -> Result<(), String> {
         .arg("roslyn-language-server")
         .arg("--global")
         .arg("--prerelease")
-        // .arg("--source")
-        // .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
+        .arg("--source")
+        .arg("https://pkgs.dev.azure.com/azure-public/vside/_packaging/vs-impl/nuget/v3/index.json")
         .output()?;
     Ok(())
 }
