@@ -1,4 +1,3 @@
-use zed_extension_api::serde_json;
 use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
 pub struct RoslynOfficial {}
