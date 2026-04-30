@@ -1,4 +1,5 @@
-use zed_extension_api::{self as zed, serde_json, settings::LspSettings, LanguageServerId, Result};
+use zed_extension_api::serde_json;
+use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
 pub struct RoslynOfficial {}
 
@@ -262,12 +263,6 @@ impl RoslynOfficial {
         let mut roslyn_config = zed::serde_json::json!({
             // Enable Razor cohosting for proper Razor/Blazor support
             "razor|language_server.cohosting_enabled": true,
-            // These code lenses show up as "Unknown Command" in Zed and don't do anything when clicked. Disable them by default.
-            "csharp|code_lens.dotnet_enable_references_code_lens": false,
-            "csharp|code_lens.dotnet_enable_tests_code_lens": false,
-            // Disable code lenses for Razor files to prevent errors
-            "razor|code_lens.dotnet_enable_references_code_lens": false,
-            "razor|code_lens.dotnet_enable_tests_code_lens": false,
             // Enable inlay hints in the language server by default.
             // This way, enabling inlay hints in Zed will cause inlay hints to show up in C# without extra configuration.
             "csharp|inlay_hints.dotnet_enable_inlay_hints_for_parameters": true,
