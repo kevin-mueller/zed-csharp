@@ -13,6 +13,13 @@ snippets = "./snippets/csharp.json"
 
 languages = ["CSharp", "Razor", "csproj"]
 
+[language_servers.csharp-ls]
+name = "csharp-ls"
+languages = ["CSharp"]
+
+[language_servers.csharp-ls.language_ids]
+CSharp = "csharp"
+
 [language_servers.roslyn-official]
 name = "Roslyn (Official)"
 languages = ["CSharp", "Razor"]

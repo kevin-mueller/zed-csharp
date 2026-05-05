@@ -4,7 +4,7 @@ mod simple_temp_dir;
 
 use std::collections::HashMap;
 
-use language_servers::{HtmlLanguageServer, RoslynOfficial};
+use language_servers::{CsharpLs, HtmlLanguageServer, RoslynOfficial};
 use netcoredbg_binary_manager::NetCoreDbgBinaryManager;
 use serde::{Deserialize, Serialize};
 use zed_extension_api::{
@@ -16,6 +16,7 @@ use zed_extension_api::{
 
 struct CsharpExtension {
     roslyn_official: Option<RoslynOfficial>,
+    csharp_ls: Option<CsharpLs>,
     html: Option<HtmlLanguageServer>,
     binary_manager: NetCoreDbgBinaryManager,
 }
@@ -59,6 +60,7 @@ impl zed::Extension for CsharpExtension {
     fn new() -> Self {
         Self {
             roslyn_official: None,
+            csharp_ls: None,
             html: None,
             binary_manager: NetCoreDbgBinaryManager::new(),
         }
@@ -352,6 +354,10 @@ impl zed::Extension for CsharpExtension {
                 let roslyn_official = self.roslyn_official.get_or_insert_with(RoslynOfficial::new);
                 roslyn_official.language_server_cmd(language_server_id, worktree)
             }
+            CsharpLs::LANGUAGE_SERVER_ID => {
+                let csharp_ls = self.csharp_ls.get_or_insert_with(CsharpLs::new);
+                csharp_ls.language_server_command(language_server_id, worktree)
+            }
             HtmlLanguageServer::LANGUAGE_SERVER_ID => {
                 let html = self.html.get_or_insert_with(HtmlLanguageServer::new);
                 html.language_server_command(language_server_id, worktree)
@@ -365,10 +371,11 @@ impl zed::Extension for CsharpExtension {
         language_server_id: &zed::LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<Option<zed::serde_json::Value>> {
-        if language_server_id.as_ref() == RoslynOfficial::LANGUAGE_SERVER_ID {
-            return RoslynOfficial::configuration_options(worktree);
+        match language_server_id.as_ref() {
+            RoslynOfficial::LANGUAGE_SERVER_ID => RoslynOfficial::configuration_options(worktree),
+            CsharpLs::LANGUAGE_SERVER_ID => CsharpLs::configuration_options(worktree),
+            _ => Ok(None),
         }
-        Ok(None)
     }
 }
 
