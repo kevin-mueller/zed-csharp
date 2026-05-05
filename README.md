@@ -18,9 +18,10 @@ For normal build tasks, the extension tries it's best to automatically turn them
 
 Adds syntax highlighting and a LSP for the razor language. Built on a custom fork of [tree-sitter-razor](https://github.com/kevin-mueller/tree-sitter-razor) and the official roslyn lsp. Razor support is further enhanced by mixing in the html lsp for .razor files.
 
-### Official Roslyn LSP
+### Official Roslyn LSP & Lightweight csharp-ls
 
 Uses the latest version of the [official roslyn language server](https://github.com/dotnet/roslyn/tree/main/src/LanguageServer/Microsoft.CodeAnalysis.LanguageServer). This enables support for razor and improves the overall epxerience quite a bit.
+Optionally, [csharp-ls](https://github.com/razzmatazz/csharp-language-server) can also be used, which is more lightweight, but not as fully featured.
 
 ### Built-In Language Tasks
 
@@ -66,7 +67,14 @@ I'm using the preview version of Zed, but you don't have to.
   },
   // the roslyn lsp crashes for textDocument/documentColor requests
   // didn't find a way to disable it only for this extension
-  "lsp_document_colors": "none"
+  "lsp_document_colors": "none",
+  "languages": {
+    "CSharp": {
+      "language_servers": [
+        "roslyn-official" // or "csharp-ls" for a more lightweight alternative
+      ]
+    },
+  }
 }
 ```
 
@@ -75,6 +83,8 @@ I'm using the preview version of Zed, but you don't have to.
 {
   // improves the c# syntax highliting further
   "semantic_tokens": "combined",
+  // to enable inline reference hints
+  "code_lens": "on"
 }
 ```
 
