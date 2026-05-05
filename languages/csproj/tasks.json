@@ -2,13 +2,13 @@
   {
     "label": "Build Current Project",
     "command": "dotnet build",
-    "args": [
-      "$ZED_FILE"
-    ],
-    "reveal": "no_focus",
-    "hide": "never",
-    "show_command": false,
-    "show_summary": false
+    "args": ["$ZED_FILE"],
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "reveal_target": "center",
+    "hide": "on_success",
+    "shell": "system"
   },
   {
     "label": "Run Current Project",
@@ -51,5 +51,16 @@
     "hide": "never",
     "show_command": false,
     "show_summary": false
+  },
+  {
+    "label": "Restore Current Project",
+    "command": "dotnet restore",
+    "args": ["$ZED_FILE"],
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "reveal_target": "center",
+    "hide": "on_success",
+    "shell": "system"
   }
 ]
