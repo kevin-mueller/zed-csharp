@@ -64,7 +64,6 @@
   (#set! tag csharp-test-class)
 )
 
-
 ; =================================================
 ; Test class by name ending with "Test" (without namespace)
 ; (anchored to top-level only)
@@ -76,4 +75,3 @@
       (#match? @csharp_class_name "Tests?$")))
   (#set! tag csharp-test-class)
 )
-

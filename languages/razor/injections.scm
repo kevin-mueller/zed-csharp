@@ -1,21 +1,12 @@
-;; ============================================================================
-;; Razor Injections - Define language injections for C# and HTML content
-;; ============================================================================
+; inherits: c_sharp
 
-;; C# Code Blocks
-(razor_block) @injection.content
-(#set! injection.language "c_sharp")
+; Comments as comment language
+([
+  (html_comment)
+  (razor_comment)
+] @injection.content
+  (#set! injection.language "comment"))
 
+; HTML elements get HTML highlighting
 ((element) @injection.content
-  (#set! injection.language "html")
-  (#set! injection.combined))
-
-;; Comments
-(razor_comment) @injection.content
-(#set! injection.language "comment")
-
-(html_comment) @injection.content
-(#set! injection.language "comment")
-
-(comment) @injection.content
-(#set! injection.language "comment")
+  (#set! injection.language "html"))

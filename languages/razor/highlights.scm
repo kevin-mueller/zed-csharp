@@ -1,174 +1,132 @@
-;; Inherit C# highlighting
-; (inherits: c_sharp)
+; inherits: c_sharp
 
-;; ============================================================================
-;; Razor-specific Highlighting
-;; ============================================================================
+; ============================================================
+; Razor directive markers (@page, @using, @model, @code, …)
+; ============================================================
 
-;; Razor Markers and Keywords
 [
   "at_page"
   "at_using"
   "at_model"
+  "at_rendermode"
   "at_inject"
   "at_implements"
-  "at_inherits"
   "at_layout"
+  "at_inherits"
   "at_attribute"
   "at_typeparam"
   "at_namespace"
   "at_preservewhitespace"
-  "at_rendermode"
-  "at_section"
   "at_block"
+  "at_at_escape"
+  "at_colon_transition"
+] @keyword.directive
+
+[
+  "at_lock"
+  "at_section"
+] @keyword
+
+[
   "at_if"
   "at_switch"
+] @keyword.conditional
+
+[
   "at_for"
   "at_foreach"
   "at_while"
   "at_do"
+] @keyword.repeat
+
+[
   "at_try"
-  "at_await"
-  "at_lock"
+] @keyword.exception
+
+; ============================================================
+; Razor expressions — @ markers only, not the whole expression
+; ============================================================
+
+[
   "at_implicit"
   "at_explicit"
-  "at_colon_transition"
-  "at_at_escape"
-] @keyword
+] @punctuation.special
 
-;; Razor Directives
-(razor_page_directive) @keyword.directive
-(razor_using_directive) @keyword.directive
-(razor_model_directive) @keyword.directive
-(razor_inject_directive) @keyword.directive
-(razor_implements_directive) @keyword.directive
-(razor_inherits_directive) @keyword.directive
-(razor_layout_directive) @keyword.directive
-(razor_attribute_directive) @keyword.directive
-(razor_typeparam_directive) @keyword.directive
-(razor_namespace_directive) @keyword.directive
-(razor_preservewhitespace_directive) @keyword.directive
-(razor_rendermode_directive) @keyword.directive
+(razor_implicit_expression
+  "at_implicit" @keyword
+  (await_expression
+    "await" @keyword))
 
-;; Razor Render Modes
-(razor_rendermode) @constant.builtin
+; ============================================================
+; Razor render mode values
+; ============================================================
 
-;; Razor Comments
-(razor_comment) @comment
+(razor_rendermode) @constant
 
-;; Razor Expressions
-(razor_implicit_expression) @variable
-(razor_explicit_expression) @variable
-(razor_await_expression) @keyword
-
-;; Razor Control Structures
-(razor_if) @keyword.control.conditional
-(razor_else_if) @keyword.control.conditional
-(razor_else) @keyword.control.conditional
-(razor_switch) @keyword.control.conditional
-(razor_switch_case) @keyword.control.conditional
-(razor_switch_default) @keyword.control.conditional
-(razor_for) @keyword.control.repeat
-(razor_foreach) @keyword.control.repeat
-(razor_while) @keyword.control.repeat
-(razor_do_while) @keyword.control.repeat
-(razor_try) @keyword.control.exception
-(razor_catch) @keyword.control.exception
-(razor_finally) @keyword.control.exception
-
-;; Razor Blocks
-(razor_block) @keyword
-
-;; Razor Section
-(razor_section
-  (identifier) @function)
-
-;; Razor Compound Using
-(razor_compound_using) @keyword
-
-;; Razor Lock
-(razor_lock) @keyword
-
-;; Razor Condition
-(razor_condition) @keyword
-
-;; ============================================================================
-;; HTML Elements
-;; ============================================================================
-
-;; HTML Tags
-(element
-  "<" @tag.delimiter
-  ">" @tag.delimiter
-  "</" @tag.delimiter
-  "/>" @tag.delimiter)
-
-;; HTML Attributes (using node types without hidden nodes)
-(element) @tag
-
-;; Razor HTML Attributes
-(razor_html_attribute
-  (razor_attribute_name) @attribute)
+; ============================================================
+; Blazor event / bind attributes  (@onclick, @bind, @ref …)
+; ============================================================
 
 (razor_attribute_name) @attribute
-
-;; Razor Attribute Modifiers
 (razor_attribute_modifier) @attribute
 
-;; Razor Attribute Values
-(razor_attribute_value) @string
+; ============================================================
+; Comments
+; ============================================================
 
-;; HTML Comments
-(html_comment) @comment
+[
+  (razor_comment)
+  (html_comment)
+] @comment
 
-;; ============================================================================
-;; C# Inherited Rules (Key Highlights)
-;; ============================================================================
+; ============================================================
+; Explicit C# highlights for @code / @functions blocks
+; (duplicated from c_sharp highlights.scm as a reliable fallback
+;  in case the ; inherits directive is not resolved by the host)
+; ============================================================
 
-;; Identifiers
 (identifier) @variable
 
-;; Types
-(type_declaration
-  name: (identifier) @type)
+(method_declaration name: (identifier) @function)
+(_ function: (identifier) @function)
+(local_function_statement name: (identifier) @function)
+(invocation_expression
+  (member_access_expression name: (identifier) @function))
 
-(interface_declaration
-  name: (identifier) @type)
+(interface_declaration name: (identifier) @type)
+(class_declaration name: (identifier) @type)
+(enum_declaration name: (identifier) @type)
+(struct_declaration (identifier) @type)
+(record_declaration (identifier) @type)
+(namespace_declaration name: (identifier) @type)
 
-(class_declaration
-  name: (identifier) @type)
+(generic_name (identifier) @type)
+(type_parameter (identifier) @property.definition)
+(parameter type: (identifier) @type)
+(type_argument_list (identifier) @type)
+(as_expression right: (identifier) @type)
+(is_expression right: (identifier) @type)
+(_ type: (identifier) @type)
+(base_list (identifier) @type)
 
-(struct_declaration
-  name: (identifier) @type)
+(constructor_declaration name: (identifier) @constructor)
+(destructor_declaration name: (identifier) @constructor)
 
-(enum_declaration
-  name: (identifier) @type)
-
-(record_declaration
-  name: (identifier) @type)
-
-;; Methods
-(method_declaration
-  name: (identifier) @function)
-
-(local_function_statement
-  name: (identifier) @function)
-
-;; Properties
-(property_declaration
-  name: (identifier) @property)
-
-;; Parameters
-(parameter
-  name: (identifier) @parameter)
-
-;; Built-in Types
 (predefined_type) @type.builtin
 
-;; Literals
+(enum_member_declaration (identifier) @property.definition)
+
+(property_declaration name: (identifier) @property)
+
+(parameter name: (identifier) @variable.parameter)
+
+(attribute name: (identifier) @attribute)
+
+(type_parameter_constraints_clause (identifier) @property.definition)
+
 [
-  (integer_literal)
   (real_literal)
+  (integer_literal)
 ] @number
 
 [
@@ -177,9 +135,10 @@
   (raw_string_literal)
   (verbatim_string_literal)
   (interpolated_string_expression)
+  (interpolation_start)
+  (interpolation_quote)
 ] @string
 
-(string_literal_content) @string
 (escape_sequence) @string.escape
 
 [
@@ -187,134 +146,12 @@
   (null_literal)
 ] @constant.builtin
 
-;; Keywords
-[
-  "if"
-  "else"
-  "switch"
-  "case"
-  "default"
-] @keyword.control.conditional
+(comment) @comment
 
-[
-  "for"
-  "foreach"
-  "while"
-  "do"
-  "in"
-] @keyword.control.repeat
-
-[
-  "try"
-  "catch"
-  "finally"
-  "throw"
-] @keyword.control.exception
-
-[
-  "break"
-  "continue"
-  "goto"
-  "return"
-  "yield"
-] @keyword.control.return
-
-[
-  "using"
-  "namespace"
-] @keyword.control.import
-
-[
-  "async"
-  "await"
-] @keyword.coroutine
-
-[
-  "new"
-] @keyword.operator
-
-[
-  "class"
-  "struct"
-  "interface"
-  "enum"
-  "record"
-] @keyword.type
-
-[
-  "public"
-  "private"
-  "protected"
-  "internal"
-  "static"
-  "virtual"
-  "override"
-  "abstract"
-  "sealed"
-  "readonly"
-  "const"
-  "volatile"
-  "extern"
-  "unsafe"
-  "partial"
-] @keyword.modifier
-
-[
-  "this"
-  "base"
-] @variable.builtin
-
-[
-  "var"
-] @keyword
-
-;; Operators
-[
-  "+"
-  "-"
-  "*"
-  "/"
-  "%"
-  "="
-  "=="
-  "!="
-  "<"
-  ">"
-  "<="
-  ">="
-  "&&"
-  "||"
-  "!"
-  "&"
-  "|"
-  "^"
-  "~"
-  "<<"
-  ">>"
-  "+="
-  "-="
-  "*="
-  "/="
-  "%="
-  "&="
-  "|="
-  "^="
-  "<<="
-  ">>="
-  "??"
-  "??="
-  "=>"
-  "?"
-  ":"
-  "++"
-  "--"
-] @operator
-
-;; Punctuation
 [
   ";"
-  ","
   "."
+  ","
 ] @punctuation.delimiter
 
 [
@@ -324,23 +161,143 @@
   "]"
   "{"
   "}"
+  (interpolation_brace)
 ] @punctuation.bracket
 
-;; Comments
-(comment) @comment
-
-;; Preprocessor
 [
-  (preproc_if)
-  (preproc_elif)
-  (preproc_else)
-  (preproc_define)
-  (preproc_undef)
-  (preproc_region)
-  (preproc_endregion)
-  (preproc_pragma)
-  (preproc_nullable)
-  (preproc_error)
-  (preproc_warning)
-  (preproc_line)
-] @keyword.directive
+  "--"
+  "-"
+  "-="
+  "&"
+  "&="
+  "&&"
+  "+"
+  "++"
+  "+="
+  "<"
+  "<="
+  "<<"
+  "<<="
+  "="
+  "=="
+  "!"
+  "!="
+  "=>"
+  ">"
+  ">="
+  ">>"
+  ">>="
+  ">>>"
+  ">>>="
+  "|"
+  "|="
+  "||"
+  "?"
+  "??"
+  "??="
+  "^"
+  "^="
+  "~"
+  "*"
+  "*="
+  "/"
+  "/="
+  "%"
+  "%="
+  ":"
+] @operator
+
+[
+  (modifier)
+  "this"
+  (implicit_type)
+] @keyword
+
+[
+  "class"
+  "struct"
+  "interface"
+  "enum"
+  "record"
+  "delegate"
+] @keyword.type
+
+[
+  "if"
+  "else"
+  "switch"
+  "case"
+  "default"
+  "when"
+] @keyword.conditional
+
+[
+  "for"
+  "foreach"
+  "while"
+  "do"
+  "in"
+] @keyword.repeat
+
+[
+  "try"
+  "catch"
+  "finally"
+  "throw"
+] @keyword.exception
+
+[
+  "return"
+  "break"
+  "continue"
+  "goto"
+  "yield"
+] @keyword.return
+
+[
+  "using"
+  "namespace"
+  "global"
+] @keyword.import
+
+[
+  "async"
+  "await"
+] @keyword.coroutine
+
+[
+  "new"
+  "sizeof"
+  "stackalloc"
+  "typeof"
+  "is"
+  "as"
+  "with"
+] @keyword.operator
+
+[
+  "add"
+  "alias"
+  "base"
+  "checked"
+  "event"
+  "explicit"
+  "extern"
+  "from"
+  "get"
+  "implicit"
+  "init"
+  "let"
+  "lock"
+  "notnull"
+  "operator"
+  "out"
+  "params"
+  "ref"
+  "remove"
+  "select"
+  "set"
+  "static"
+  "unchecked"
+  "where"
+] @keyword

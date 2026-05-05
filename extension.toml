@@ -30,11 +30,11 @@ Razor = "html"
 
 [grammars.c_sharp]
 repository = "https://github.com/tree-sitter/tree-sitter-c-sharp"
-commit = "485f0bae0274ac9114797fc10db6f7034e4086e3"
+commit = "cac6d5fb595f5811a076336682d5d595ac1c9e85"
 
 [grammars.razor]
-repository = "https://github.com/kevin-mueller/tree-sitter-razor"
-commit = "a20ca53063663e1f435c164b4d446e9a7ee72ea6"
+repository = "https://github.com/tris203/tree-sitter-razor"
+commit = "a3399c26610817c6d32c7643793caf3729cfb6d2"
 
 [grammars.xml]
 repository = "https://github.com/tree-sitter-grammars/tree-sitter-xml"
@@ -76,7 +76,6 @@ kind = "process:exec"
 command = "echo"
 args = ["**"]
 
-# Used to run `csharp-language-server --download` after an update
 [[capabilities]]
 kind = "process:exec"
 command = "*"
