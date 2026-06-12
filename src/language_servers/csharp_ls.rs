@@ -15,6 +15,18 @@ impl CsharpLs {
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         if let Some(path) = worktree.which("csharp-ls") {
+            zed_extension_api::set_language_server_installation_status(
+                language_server_id,
+                &zed::LanguageServerInstallationStatus::Downloading,
+            );
+
+            let _ = update_csharp_ls();
+
+            zed_extension_api::set_language_server_installation_status(
+                language_server_id,
+                &zed::LanguageServerInstallationStatus::None,
+            );
+
             return Ok(zed::Command {
                 command: path,
                 args: vec![],
@@ -47,7 +59,10 @@ impl CsharpLs {
             });
         }
 
-        Err("csharp-ls not found. Install manually: dotnet tool install --global csharp-ls".to_string())
+        Err(
+            "csharp-ls not found. Install manually: dotnet tool install --global csharp-ls"
+                .to_string(),
+        )
     }
 
     pub fn configuration_options(
@@ -75,4 +90,14 @@ impl CsharpLs {
 
         Ok(Some(config))
     }
+}
+
+fn update_csharp_ls() -> Result<(), String> {
+    zed_extension_api::process::Command::new("dotnet")
+        .arg("tool")
+        .arg("update")
+        .arg("--global")
+        .arg("csharp-ls")
+        .output()?;
+    Ok(())
 }

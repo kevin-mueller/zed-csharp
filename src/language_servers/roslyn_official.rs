@@ -36,7 +36,7 @@ impl RoslynOfficial {
                 &zed::LanguageServerInstallationStatus::Downloading,
             );
 
-            update_roslyn_server()?;
+            let _ = update_roslyn_server();
 
             zed_extension_api::set_language_server_installation_status(
                 language_server_id,
