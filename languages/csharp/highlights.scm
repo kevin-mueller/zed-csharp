@@ -261,3 +261,17 @@
 ;; Method calls
 
 (invocation_expression (member_access_expression name: (identifier) @function))
+
+; pattern expression keywords
+(negated_pattern
+  "not" @keyword)
+
+(and_pattern
+  "and" @keyword)
+
+(or_pattern
+  "or" @keyword)
+
+; scoped keyword
+(scoped_type
+  "scoped" @keyword)
