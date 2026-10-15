@@ -56,15 +56,6 @@ I'm using the preview version of Zed, but you don't have to.
 **Required** changes to settings.json:
 ```jsonc
 {
-  "lsp": {
-    "roslyn-official": {
-      "settings": {
-        // this is required for the razor lsp extensions. If you omit it, there will be no razor lsp support!
-        // it will be downloaded automatically. You just have to provide a path
-        "razor_source_repository_root": "/some/place/nice/razor" 
-      }
-    },
-  },
   // the roslyn lsp crashes for textDocument/documentColor requests
   // didn't find a way to disable it only for this extension
   "lsp_document_colors": "none",
@@ -73,6 +64,10 @@ I'm using the preview version of Zed, but you don't have to.
       "language_servers": [
         "roslyn-official" // or "csharp-ls" for a more lightweight alternative
       ]
+    },
+    "Razor": {
+      // html-in-razor provides html hover, completion etc. inside .razor files
+      "language_servers": ["roslyn-official", "html-in-razor"]
     },
   }
 }
@@ -85,6 +80,26 @@ I'm using the preview version of Zed, but you don't have to.
   "semantic_tokens": "combined",
   // to enable inline reference hints
   "code_lens": "on"
+}
+```
+
+**Optional** roslyn settings in settings.json:
+```jsonc
+{
+  "lsp": {
+    "roslyn-official": {
+      "settings": {
+        // report diagnostics for the whole solution instead of only open files.
+        // makes the project diagnostics panel complete, but costs more cpu / memory on large solutions
+        "csharp|background_analysis.dotnet_analyzer_diagnostics_scope": "fullSolution",
+        "csharp|background_analysis.dotnet_compiler_diagnostics_scope": "fullSolution",
+        // sort and remove unnecessary usings when formatting
+        "csharp|formatting.dotnet_organize_imports_on_format": true,
+        // generate auto properties instead of throwing ones (e.g. for "Implement interface")
+        "csharp|type_members.dotnet_property_generation_behavior": "preferAutoProperties"
+      }
+    }
+  }
 }
 ```
 
@@ -109,10 +124,9 @@ I'm keeping this section both as a little warning and as a kind request for cont
 The extension requires multiple binaries to work properly. Managing them is a bit of a pain.
 
 1. The roslyn-lanuage-server dotnet tool. This is actually pretty ok to manage, because the extension can just install & update it via the dotnet command. Still, it has the problem of installing / updating a gloabl tool, outside of the scope of the extension.
-2. The `Microsoft.VisualStudioCode.RazorExtension.dll`. This is required to provide razor LSP functionality. It is currently fetched by cloning the [source repo](https://github.com/dotnet/razor) and compiling the `Microsoft.VisualStudioCode.RazorExtension.csproj`. If someone knows of a binary distribution of this, please let me know.
-3. The `Microsoft.CodeAnalysis.Razor.Compiler.dll` and `Microsoft.NET.Sdk.Razor.DesignTime.targets`. These files are also required to provide razor LSP support. They are shipped via the dotnet sdk and are currently read from there. The latest sdk version is detemined by running `dotnet --list-sdks` and parsing the output. *yikes*.
-4. The `vscode-html-language-server` executable. It is used by the html-in-razor, which is required to get the html lsp working inside of .razor files. It is currently provided the exact same way the official, bundled html extension does it. Which is via npm.
-5. The "Open Project" command is currently hard-coded to use the `zed-preview` executable. If you don't use the preview, you could add an alias, or simply change it in the tasks.json file in the csharp language folder.
+   The razor LSP functionality (`Microsoft.VisualStudioCode.RazorExtension.dll`, the razor compiler and design time targets) ships with the roslyn-language-server package and is loaded automatically.
+2. The `vscode-html-language-server` executable. It is used by the html-in-razor, which is required to get the html lsp working inside of .razor files. It is currently provided the exact same way the official, bundled html extension does it. Which is via npm.
+3. The "Open Project" command is currently hard-coded to use the `zed-preview` executable. If you don't use the preview, you could add an alias, or simply change it in the tasks.json file in the csharp language folder.
 
 **Build Context Resolution**
 

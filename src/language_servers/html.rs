@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use zed_extension_api::{self as zed, LanguageServerId, Result};
+use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result};
 
 pub struct HtmlLanguageServer {
     cached_binary_path: Option<String>,
@@ -88,5 +88,29 @@ impl HtmlLanguageServer {
             args: vec![server_path, "--stdio".to_string()],
             env: Default::default(),
         })
+    }
+
+    pub fn initialization_options(
+        worktree: &zed::Worktree,
+    ) -> Result<Option<zed::serde_json::Value>> {
+        // Without provideFormatter the server does not advertise document formatting,
+        // so Zed would never send format requests to it.
+        let initialization_options = LspSettings::for_worktree(Self::LANGUAGE_SERVER_ID, worktree)
+            .ok()
+            .and_then(|s| s.initialization_options)
+            .unwrap_or_else(|| zed::serde_json::json!({ "provideFormatter": true }));
+
+        Ok(Some(initialization_options))
+    }
+
+    pub fn configuration_options(
+        worktree: &zed::Worktree,
+    ) -> Result<Option<zed::serde_json::Value>> {
+        let settings = LspSettings::for_worktree(Self::LANGUAGE_SERVER_ID, worktree)
+            .ok()
+            .and_then(|s| s.settings)
+            .unwrap_or_default();
+
+        Ok(Some(settings))
     }
 }

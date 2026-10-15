@@ -374,6 +374,18 @@ impl zed::Extension for CsharpExtension {
         match language_server_id.as_ref() {
             RoslynOfficial::LANGUAGE_SERVER_ID => RoslynOfficial::configuration_options(worktree),
             CsharpLs::LANGUAGE_SERVER_ID => CsharpLs::configuration_options(worktree),
+            HtmlLanguageServer::LANGUAGE_SERVER_ID => HtmlLanguageServer::configuration_options(worktree),
+            _ => Ok(None),
+        }
+    }
+
+    fn language_server_initialization_options(
+        &mut self,
+        language_server_id: &zed::LanguageServerId,
+        worktree: &zed::Worktree,
+    ) -> Result<Option<zed::serde_json::Value>> {
+        match language_server_id.as_ref() {
+            HtmlLanguageServer::LANGUAGE_SERVER_ID => HtmlLanguageServer::initialization_options(worktree),
             _ => Ok(None),
         }
     }
