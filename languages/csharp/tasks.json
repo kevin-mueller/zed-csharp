@@ -76,13 +76,7 @@
   },
   {
     "label": "Run: ${ZED_CUSTOM_csharp_method_name}",
-    "command": "dotnet",
-    "args": [
-      "test",
-      "$(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)",
-      "--filter",
-      "FullyQualifiedName~${ZED_CUSTOM_csharp_class_name}.${ZED_CUSTOM_csharp_method_name}"
-    ],
+    "command": "p=\"\"; d=$(dirname \"$DOTNET_FILE\"); while [[ -z \"$p\" && \"$d\" != \"/\" ]]; do p=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); d=$(dirname \"$d\"); done; if grep -qs \"TUnit\" \"$p\"; then dotnet run --project \"$p\" -- --treenode-filter \"/*/*/$CSHARP_TEST_CLASS/$CSHARP_TEST_METHOD\"; else dotnet test \"$p\" --filter \"FullyQualifiedName~$CSHARP_TEST_CLASS.$CSHARP_TEST_METHOD\"; fi",
     "cwd": "$ZED_DIRNAME",
     "use_new_terminal": false,
     "reveal": "always",
@@ -99,13 +93,7 @@
   },
   {
     "label": "Run: ${ZED_CUSTOM_csharp_class_name}",
-    "command": "dotnet",
-    "args": [
-      "test",
-      "$(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)",
-      "--filter",
-      "FullyQualifiedName~${ZED_CUSTOM_csharp_class_name}"
-    ],
+    "command": "p=\"\"; d=$(dirname \"$DOTNET_FILE\"); while [[ -z \"$p\" && \"$d\" != \"/\" ]]; do p=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); d=$(dirname \"$d\"); done; if grep -qs \"TUnit\" \"$p\"; then dotnet run --project \"$p\" -- --treenode-filter \"/*/*/$CSHARP_TEST_CLASS/*\"; else dotnet test \"$p\" --filter \"FullyQualifiedName~$CSHARP_TEST_CLASS\"; fi",
     "cwd": "$ZED_DIRNAME",
     "use_new_terminal": false,
     "reveal": "always",
