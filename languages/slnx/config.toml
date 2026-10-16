@@ -1,6 +1,7 @@
 name = "C# Solution File"
 grammar = "xml"
 path_suffixes = ["slnx"]
+debuggers = ["netcoredbg"]
 block_comment = ["<!-- ", " -->"]
 autoclose_before = "<"
 brackets = [{ start = "<", end = ">", close = true, newline = true }]

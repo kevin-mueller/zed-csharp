@@ -1,6 +1,7 @@
 name = "Razor"
 grammar = "razor"
 path_suffixes = ["razor", "cshtml"]
+debuggers = ["netcoredbg"]
 line_comments = ["@* ", " *@"]
 block_comment = ["@*", "*@"]
 autoclose_before = ";:.,=}])>"
