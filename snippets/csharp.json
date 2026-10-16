@@ -2,42 +2,83 @@
   "C# Class": {
     "prefix": "cls",
     "body": [
-      "namespace ${1:Namespace}",
+      "namespace ${1:Namespace};",
       "",
-      "public class ${2:ClassName}",
+      "public ${2|class,sealed class,static class,abstract class|} ${3:ClassName}",
       "{",
       "    $0",
-      "}",
+      "}"
     ],
-    "description": "New C# Class"
+    "description": "New C# class (file-scoped namespace)"
   },
   "C# Interface": {
     "prefix": "inf",
     "body": [
-      "namespace ${1:Namespace}",
+      "namespace ${1:Namespace};",
       "",
-      "public interface ${2:InterfaceName}",
+      "public interface ${2:IInterfaceName}",
       "{",
       "    $0",
-      "}",
+      "}"
     ],
-    "description": "New C# Interface"
+    "description": "New C# interface (file-scoped namespace)"
+  },
+  "C# Constructor": {
+    "prefix": "ctor",
+    "body": [
+      "public ${1:ClassName}($2)",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Constructor"
+  },
+  "C# Property": {
+    "prefix": "prop",
+    "body": [
+      "public ${1:string} ${2:Name} { get; ${3|set,init,private set|}; }$0"
+    ],
+    "description": "Auto-property"
+  },
+  "C# Test Method": {
+    "prefix": "test",
+    "body": [
+      "[${1|Fact,Theory,Test,TestMethod|}]",
+      "public ${2|async Task,void|} ${3:Method_Scenario_ExpectedResult}()",
+      "{",
+      "    $0",
+      "}"
+    ],
+    "description": "Test method (xUnit / NUnit / TUnit / MSTest)"
   },
   "C# foreach": {
     "prefix": "foreach",
     "body": [
-      "foreach (var ${2:x} in ${1:LIST})",
+      "foreach (var ${2:item} in ${1:collection})",
       "{",
-      "   $0",
+      "    $0",
       "}"
     ]
   },
   "C# for": {
     "prefix": "for",
     "body": [
-      "for (var ${2:i} = 0; i < ${1:length}; ${3:${2:i}++})",
+      "for (var ${2:i} = 0; ${2:i} < ${1:length}; ${2:i}++)",
       "{",
-      "   $0",
+      "    $0",
+      "}"
+    ]
+  },
+  "C# try/catch": {
+    "prefix": "try",
+    "body": [
+      "try",
+      "{",
+      "    $1",
+      "}",
+      "catch (${2:Exception} ${3:ex})",
+      "{",
+      "    $0",
       "}"
     ]
   },

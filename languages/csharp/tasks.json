@@ -1,47 +1,74 @@
 [
   {
     "label": "Open Project File",
-    "command": "zed-preview",
+    "command": "sh",
     "args": [
-      "$(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)"
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "open-project.sh"
     ],
     "reveal": "never",
     "hide": "on_success",
     "show_command": false,
-    "show_summary": false
+    "show_summary": false,
+    "env": {
+      "DOTNET_FILE": "$ZED_FILE"
+    }
+  },
+  {
+    "label": "Fill Empty File With Type Declaration",
+    "command": "sh",
+    "args": [
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "new-type.sh"
+    ],
+    "reveal": "never",
+    "hide": "on_success",
+    "show_command": false,
+    "show_summary": false,
+    "env": {
+      "DOTNET_FILE": "$ZED_FILE"
+    }
   },
   {
     "label": "Build Project",
-    "command": "dotnet build $(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)",
-    "reveal": "no_focus",
-    "hide": "never",
-    "env": {
-      "DOTNET_FILE": "$ZED_FILE"
-    },
-    "show_command": false,
-    "show_summary": false
-  },
-  {
-    "label": "Run Project",
-    "command": "dotnet",
+    "command": "sh",
     "args": [
-      "run",
-      "--project",
-      "$(d=\"$ZED_FILE\"; while [[ $d != / ]]; do c=$(find $d -maxdepth 1 -name '*.csproj' -print -quit 2>/dev/null); [[ -n $c ]] && echo $c && break; d=$(dirname $d); done)"
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "build-project.sh"
     ],
     "reveal": "no_focus",
     "hide": "never",
+    "show_command": false,
+    "show_summary": false,
     "env": {
       "DOTNET_FILE": "$ZED_FILE"
-    },
+    }
+  },
+  {
+    "label": "Run Project",
+    "command": "sh",
+    "args": [
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "run-project.sh"
+    ],
+    "reveal": "no_focus",
+    "hide": "never",
     "show_command": false,
-    "show_summary": false
+    "show_summary": false,
+    "env": {
+      "DOTNET_FILE": "$ZED_FILE"
+    }
   },
   {
     "label": "Build Solution",
-    "command": "dotnet build",
+    "command": "dotnet",
     "args": [
-      "$ZED_WORKTREE_ROOT"
+      "build",
+      "'$ZED_WORKTREE_ROOT'"
     ],
     "reveal": "no_focus",
     "hide": "never",
@@ -50,9 +77,12 @@
   },
   {
     "label": "Run All Tests in Root Directory",
-    "command": "dotnet test -v m",
+    "command": "dotnet",
     "args": [
-      "$ZED_WORKTREE_ROOT"
+      "test",
+      "-v",
+      "m",
+      "'$ZED_WORKTREE_ROOT'"
     ],
     "reveal": "no_focus",
     "hide": "never",
@@ -61,22 +91,28 @@
   },
   {
     "label": "Test Project",
-    "command": "dotnet",
+    "command": "sh",
     "args": [
-      "test",
-      "$(d=\"$ZED_FILE\"; while [[ $d != / ]]; do c=$(find $d -maxdepth 1 -name '*.csproj' -print -quit 2>/dev/null); [[ -n $c ]] && echo $c && break; d=$(dirname $d); done)"
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "test-project.sh"
     ],
     "reveal": "no_focus",
     "hide": "never",
+    "show_command": false,
+    "show_summary": false,
     "env": {
       "DOTNET_FILE": "$ZED_FILE"
-    },
-    "show_command": false,
-    "show_summary": false
+    }
   },
   {
     "label": "Run: ${ZED_CUSTOM_csharp_method_name}",
-    "command": "p=\"\"; d=$(dirname \"$DOTNET_FILE\"); while [[ -z \"$p\" && \"$d\" != \"/\" ]]; do p=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); d=$(dirname \"$d\"); done; if grep -qs \"TUnit\" \"$p\"; then dotnet run --project \"$p\" -- --treenode-filter \"/*/*/$CSHARP_TEST_CLASS/$CSHARP_TEST_METHOD\"; else dotnet test \"$p\" --filter \"FullyQualifiedName~$CSHARP_TEST_CLASS.$CSHARP_TEST_METHOD\"; fi",
+    "command": "sh",
+    "args": [
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "run-tests.sh"
+    ],
     "cwd": "$ZED_DIRNAME",
     "use_new_terminal": false,
     "reveal": "always",
@@ -93,7 +129,12 @@
   },
   {
     "label": "Run: ${ZED_CUSTOM_csharp_class_name}",
-    "command": "p=\"\"; d=$(dirname \"$DOTNET_FILE\"); while [[ -z \"$p\" && \"$d\" != \"/\" ]]; do p=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); d=$(dirname \"$d\"); done; if grep -qs \"TUnit\" \"$p\"; then dotnet run --project \"$p\" -- --treenode-filter \"/*/*/$CSHARP_TEST_CLASS/*\"; else dotnet test \"$p\" --filter \"FullyQualifiedName~$CSHARP_TEST_CLASS\"; fi",
+    "command": "sh",
+    "args": [
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "run-tests.sh"
+    ],
     "cwd": "$ZED_DIRNAME",
     "use_new_terminal": false,
     "reveal": "always",

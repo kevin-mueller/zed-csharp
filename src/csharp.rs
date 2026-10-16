@@ -1,8 +1,14 @@
+mod dotnet_run;
 mod language_servers;
+mod msbuild;
 mod netcoredbg_binary_manager;
 mod simple_temp_dir;
 
 use std::collections::HashMap;
+use std::path::Path;
+
+use dotnet_run::{launch_profile, resolve_path, DotnetInvocation, Subcommand};
+use msbuild::build_project;
 
 use language_servers::{CsharpLs, HtmlLanguageServer, RoslynOfficial};
 use netcoredbg_binary_manager::NetCoreDbgBinaryManager;
@@ -50,6 +56,11 @@ pub enum ProcessId {
     Int(i32),
     String(String),
 }
+
+/// Env vars that carry a task's original command line from `dap_locator_create_scenario` to
+/// `run_dap_locator`, one variable per argument so Zed resolves the $ZED variables in each.
+const DEBUG_COMMAND_ENV: &str = "CSHARP_DEBUG_COMMAND";
+const DEBUG_ARG_ENV_PREFIX: &str = "CSHARP_DEBUG_ARG_";
 
 impl CsharpExtension {
     const ADAPTER_NAME: &str = "netcoredbg";
@@ -202,62 +213,65 @@ impl zed::Extension for CsharpExtension {
 
     fn dap_locator_create_scenario(
         &mut self,
-        _locator_name: String,
-        _build_task: zed::TaskTemplate,
-        _resolved_label: String,
-        _debug_adapter_name: String,
+        locator_name: String,
+        build_task: zed::TaskTemplate,
+        resolved_label: String,
+        debug_adapter_name: String,
     ) -> Option<DebugScenario> {
-        if _debug_adapter_name != Self::ADAPTER_NAME {
+        if debug_adapter_name != Self::ADAPTER_NAME {
             return None;
         }
 
         // Handle project runner locator
-        if _locator_name == Self::PROJECT_RUNNER_LOCATOR_NAME {
-            // Check if command is "dotnet" or starts with "dotnet run" or is a variable
-            let is_dotnet_command = _build_task.command.starts_with("dotnet")
-                && (_build_task
-                    .args
-                    .iter()
-                    .any(|arg| arg == "run" || arg == "test")
-                    || _build_task.command.contains("run")
-                    || _build_task.command.contains("test"));
+        if locator_name == Self::PROJECT_RUNNER_LOCATOR_NAME {
+            // The extension's own task scripts (see languages/csharp/scripts) get their
+            // project from the DOTNET_FILE env var, so they are treated like a bare
+            // `dotnet run` / `dotnet test`. Any other task must be a `dotnet run` / `dotnet test`.
+            let script_command = (build_task.command == "sh")
+                .then(|| {
+                    build_task.args.iter().find_map(|arg| match arg.as_str() {
+                        "run-project.sh" => Some("dotnet run"),
+                        "test-project.sh" | "run-tests.sh" => Some("dotnet test"),
+                        _ => None,
+                    })
+                })
+                .flatten();
+            let (command, args) = match script_command {
+                Some(command) => (command.to_string(), Vec::new()),
+                None => {
+                    DotnetInvocation::parse(&build_task.command, &build_task.args)?;
+                    (build_task.command.clone(), build_task.args.clone())
+                }
+            };
 
-            if !is_dotnet_command {
-                return None;
-            }
-
-            // unfortunately the $ZED variables are not resolved here yet
-            // so we have no way of figuring out what the build context (csproj) should be
-            // for now we're deferring the build step to the run_dap_locator method (yes very ugly, I know. But it works.)
-            // another alternative would be to build the entire solution here, but that can be annoying when not all projects are compiling
-            //
-            let mut var_to_test = env_value(&_build_task.env, "DOTNET_FILE")?;
-            var_to_test.remove(0);
-            let args = vec![
-                "$ZED variables not resolved yet, deferring build step.".into(),
-                format!(
-                    "variable content: {:?}",
-                    var_to_test // strip the first char so the shell doesn't resolve it
-                ),
-            ];
+            // The $ZED variables are not resolved yet at this point, so we can't tell which
+            // project to build. Instead, the command is stashed in the env of a placeholder
+            // build step. Zed resolves the variables in it, and run_dap_locator builds the project.
+            let mut env = build_task.env;
+            env.push((DEBUG_COMMAND_ENV.to_string(), command));
+            env.extend(
+                args.into_iter()
+                    .enumerate()
+                    .map(|(index, arg)| (format!("{DEBUG_ARG_ENV_PREFIX}{index}"), arg)),
+            );
 
             let template = zed::BuildTaskTemplate {
-                label: "echo info".to_string(),
+                label: "prepare debug session".to_string(),
                 command: "echo".to_string(),
-                cwd: _build_task.cwd,
-                args,
-                env: _build_task.env,
+                cwd: build_task.cwd,
+                args: vec!["'Building the project for debugging...'".to_string()],
+                env,
             };
 
             let build_template =
                 zed::BuildTaskDefinition::Template(zed::BuildTaskDefinitionTemplatePayload {
-                    locator_name: Some(_locator_name.clone()),
+                    locator_name: Some(locator_name.clone()),
                     template,
                 });
 
             return Some(DebugScenario {
-                adapter: _debug_adapter_name,
-                label: _resolved_label,
+                adapter: debug_adapter_name,
+                label: resolved_label,
                 build: Some(build_template),
                 config: "{}".into(), // no config, so we run_dap_locator
                 tcp_connection: None,
@@ -270,74 +284,115 @@ impl zed::Extension for CsharpExtension {
     fn run_dap_locator(
         &mut self,
         locator_name: String,
-        _build_task: zed::TaskTemplate,
+        build_task: zed::TaskTemplate,
     ) -> Result<DebugRequest, String> {
         if locator_name == Self::PROJECT_RUNNER_LOCATOR_NAME {
-            // here the values in .env are actually resolved!
-            // we can resolve the appropriate csproj & .dll that way
+            // Here the $ZED variables in the env are resolved, so we can find the project.
+            // Later entries win, like task env over the project env.
+            let env: HashMap<String, String> = build_task.env.into_iter().collect();
 
-            let file_path = match env_value(&_build_task.env, "DOTNET_FILE") {
-                Some(fp) => fp,
-                None => return Err("Failed to get file path from env var. Make sure your run task defines a env variable called DOTNET_FILE with the value '$ZED_FILE'".to_string()),
+            let command = env
+                .get(DEBUG_COMMAND_ENV)
+                .ok_or("The debug session was not prepared by the C# extension")?;
+            let args: Vec<String> = (0..)
+                .map_while(|index| env.get(&format!("{DEBUG_ARG_ENV_PREFIX}{index}")).cloned())
+                .collect();
+            let invocation = DotnetInvocation::parse(command, &args)
+                .ok_or_else(|| format!("Not a `dotnet run` or `dotnet test` command: {command}"))?;
+
+            // Where `dotnet run` would run: the task's cwd (if Zed resolved it), or else the
+            // worktree root.
+            let task_dir = build_task
+                .cwd
+                .filter(|cwd| !cwd.contains('$'))
+                .or_else(|| env.get("ZED_WORKTREE_ROOT").cloned())
+                .ok_or("Unable to determine the task's working directory")?;
+
+            // `--project` (or `dotnet test`'s project argument) wins over the extension's
+            // DOTNET_FILE, then the project is searched upwards from the task's directory.
+            let project_path = match (&invocation.project, env.get("DOTNET_FILE")) {
+                (Some(project), _) => resolve_path(&task_dir, project),
+                (None, Some(file)) => file.clone(),
+                (None, None) => task_dir.clone(),
             };
+            if project_path.ends_with(".sln") || project_path.ends_with(".slnx") {
+                return Err(format!(
+                    "Can't debug a whole solution ({project_path}), point the task at a project instead"
+                ));
+            }
+            let csproj = find_csproj(&project_path)
+                .ok_or_else(|| format!("Failed to locate a csproj file for {project_path}"))?;
+            let project_dir = Path::new(&csproj)
+                .parent()
+                .ok_or_else(|| format!("Failed to get the directory of {csproj}"))?
+                .to_string_lossy()
+                .to_string();
 
-            let csproj = match find_csproj(&file_path) {
-                Some(x) => x,
-                None => {
-                    return Err(format!(
-                        "Failed to locate csproj file from file path: {}",
-                        &file_path
-                    ))
+            let build = build_project(&csproj, &invocation)?;
+
+            // The program inherits the task's env, without our internal variables.
+            let mut launch_env: HashMap<String, String> = env
+                .iter()
+                .filter(|(key, _)| {
+                    *key != DEBUG_COMMAND_ENV && !key.starts_with(DEBUG_ARG_ENV_PREFIX)
+                })
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
+            let mut program_args = invocation.program_args.clone();
+
+            let cwd = match invocation.subcommand {
+                Subcommand::Run => {
+                    let profile = if invocation.no_launch_profile {
+                        None
+                    } else {
+                        let launch_settings =
+                            read_file(&format!("{project_dir}/Properties/launchSettings.json"));
+                        launch_profile(
+                            launch_settings.as_deref(),
+                            invocation.launch_profile.as_deref(),
+                            &env,
+                        )?
+                    };
+
+                    let mut profile_dir = None;
+                    if let Some(profile) = profile {
+                        launch_env.extend(profile.env);
+                        // Like `dotnet run`, arguments after `--` replace the profile's.
+                        if program_args.is_empty() {
+                            program_args = profile.args;
+                        }
+                        profile_dir = profile.working_directory;
+                    }
+
+                    // `dotnet run` ignores the profile's workingDirectory, but IDEs respect it.
+                    profile_dir
+                        .or(build.run_working_directory)
+                        .map(|dir| resolve_path(&project_dir, &dir))
+                        .unwrap_or(task_dir)
+                }
+                Subcommand::Test => {
+                    if let Some(class) = env.get("CSHARP_TEST_CLASS") {
+                        program_args.extend(["-class".to_string(), format!("*.{class}")]);
+                    }
+                    if let Some(method) = env.get("CSHARP_TEST_METHOD") {
+                        program_args.extend(["-method".to_string(), format!("*.{method}")]);
+                    }
+                    Path::new(&build.target_path)
+                        .parent()
+                        .ok_or_else(|| {
+                            format!("Failed to get the directory of {}", build.target_path)
+                        })?
+                        .to_string_lossy()
+                        .to_string()
                 }
             };
-
-            _ = zed_extension_api::process::Command::new("dotnet")
-                .arg("build")
-                .arg(&csproj)
-                .arg("--configuration")
-                .arg("Debug")
-                .output()?;
-
-            let dll_path_result = &find_dll_from_csproj_or_build_props(&csproj, None);
-            let dll_path = match dll_path_result {
-                Err(_) => {
-                    // fallback with Directory.Build.Props
-                    let worktree_root = &env_value(&_build_task.env, "ZED_WORKTREE_ROOT")
-                        .ok_or("Unable to resolve worktree root from env var")?
-                        .to_string();
-                    let build_props_path = format!("{}/Directory.Build.Props", worktree_root);
-
-                    find_dll_from_csproj_or_build_props(&csproj, Some(&build_props_path))?
-                }
-                Ok(path) => path.to_string(),
-            };
-
-            let mut args: Vec<String> = vec![];
-
-            let test_class_name = env_value(&_build_task.env, "CSHARP_TEST_CLASS");
-            let test_method_name = env_value(&_build_task.env, "CSHARP_TEST_METHOD");
-
-            if test_class_name.is_some() {
-                args.push("-class".into());
-                args.push(format!("*.{}", test_class_name.unwrap()));
-            }
-
-            if test_method_name.is_some() {
-                args.push("-method".into());
-                args.push(format!("*.{}", test_method_name.unwrap()));
-            }
-
-            let last_slash_index = dll_path
-                .rfind('/')
-                .ok_or_else(|| "Failed to find last slash in dll path".to_string())?;
-
-            let cwd = &dll_path[..last_slash_index];
+            launch_env.extend(invocation.environment.iter().cloned());
 
             return Ok(DebugRequest::Launch(zed::LaunchRequest {
-                program: dll_path.to_string(),
-                args: args,
-                cwd: Some(cwd.to_string()),
-                envs: _build_task.env,
+                program: build.target_path,
+                args: program_args,
+                cwd: Some(cwd),
+                envs: launch_env.into_iter().collect(),
             }));
         }
 
@@ -374,7 +429,9 @@ impl zed::Extension for CsharpExtension {
         match language_server_id.as_ref() {
             RoslynOfficial::LANGUAGE_SERVER_ID => RoslynOfficial::configuration_options(worktree),
             CsharpLs::LANGUAGE_SERVER_ID => CsharpLs::configuration_options(worktree),
-            HtmlLanguageServer::LANGUAGE_SERVER_ID => HtmlLanguageServer::configuration_options(worktree),
+            HtmlLanguageServer::LANGUAGE_SERVER_ID => {
+                HtmlLanguageServer::configuration_options(worktree)
+            }
             _ => Ok(None),
         }
     }
@@ -385,7 +442,9 @@ impl zed::Extension for CsharpExtension {
         worktree: &zed::Worktree,
     ) -> Result<Option<zed::serde_json::Value>> {
         match language_server_id.as_ref() {
-            HtmlLanguageServer::LANGUAGE_SERVER_ID => HtmlLanguageServer::initialization_options(worktree),
+            HtmlLanguageServer::LANGUAGE_SERVER_ID => {
+                HtmlLanguageServer::initialization_options(worktree)
+            }
             _ => Ok(None),
         }
     }
@@ -431,80 +490,9 @@ fn find_csproj(start_path: &str) -> Option<String> {
     None // Not found
 }
 
-fn find_dll_from_csproj_or_build_props(
-    csproj_path: &str,
-    build_props_path: Option<&str>,
-) -> Result<String, String> {
-    let file_to_parse = build_props_path.unwrap_or(csproj_path);
-
-    let xml_output = zed::Command::new("cat")
-        .arg(file_to_parse)
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    let xml_content = String::from_utf8_lossy(&xml_output.stdout)
-        .trim()
-        .to_string();
-
-    let target_framework = match parse_target_framework(&xml_content) {
-        Some(it) => it,
-        None => {
-            return Err(format!(
-                "Unable to parse target framework from xml content {}",
-                xml_content
-            ))
-        }
-    };
-
-    let binary_name = csproj_path
-        .split("/")
-        .last()
-        .ok_or("Could not extract binary name from path")?
-        .strip_suffix(".csproj")
-        .ok_or("Path does not end with .csproj")?;
-
-    let dll_path = if let Some(last_slash) = csproj_path.rfind('/') {
-        if last_slash == 0 {
-            return Err("Unable to parse sdk output".into()); // Reached root
-        }
-        format!(
-            "{}/bin/Debug/{}/{}.dll",
-            &csproj_path[..last_slash],
-            target_framework,
-            binary_name
-        )
-    } else {
-        return Err(format!(
-            "Unable to find last slash in csproj path {}",
-            csproj_path
-        ));
-    };
-
-    // verify if file_path exists
-    if file_exists(&dll_path)? {
-        return Ok(dll_path);
-    }
-
-    return Err("Unable to find dll".into());
-}
-
-fn file_exists(path: &str) -> Result<bool, String> {
-    let status = zed::Command::new("test").arg(path).output()?.status;
-
-    return match status {
-        Some(s) => Ok(s == 0),
-        None => Err(format!("File not found at {}", path)),
-    };
-}
-
-fn parse_target_framework(csproj_content: &str) -> Option<String> {
-    // Look for <TargetFramework>net6.0</TargetFramework>
-    let start = csproj_content.find("<TargetFramework>")?;
-    let start = start + "<TargetFramework>".len();
-    let end = csproj_content[start..].find("</TargetFramework>")?;
-    Some(csproj_content[start..start + end].to_string())
-}
-
-fn env_value(env: &Vec<(String, String)>, key: &str) -> Option<String> {
-    env.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone())
+/// The contents of a file, or `None` if it can't be read.
+/// Uses `cat`, as std::fs doesn't work in the debug locator.
+fn read_file(path: &str) -> Option<String> {
+    let output = zed::Command::new("cat").arg(path).output().ok()?;
+    (output.status == Some(0)).then(|| String::from_utf8_lossy(&output.stdout).into_owned())
 }

@@ -1,9 +1,10 @@
 [
   {
     "label": "Restore Current Solution",
-    "command": "dotnet restore",
+    "command": "dotnet",
     "args": [
-      "$ZED_FILE"
+      "restore",
+      "'$ZED_FILE'"
     ],
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
@@ -14,9 +15,10 @@
   },
   {
     "label": "Build Current Solution",
-    "command": "dotnet build",
+    "command": "dotnet",
     "args": [
-      "$ZED_FILE"
+      "build",
+      "'$ZED_FILE'"
     ],
     "reveal": "no_focus",
     "hide": "never",

@@ -1,12 +1,12 @@
 id = "csharp"
 name = "C#"
 description = "C# & Razor Support"
-version = "1.2.0"
+version = "2.0.0"
 schema_version = 1
 authors = [
+    "Kevin Müller <kevin.mueller1@outlook.com>",
     "fminkowski <fminkowski@gmail.com>",
-    "Fabian Freimueller <fabianfreimueller@gmail.com>",
-    "Kevin Müller <kevin.mueller1@outlook.com>"
+    "Fabian Freimueller <fabianfreimueller@gmail.com>"
 ]
 repository = "https://github.com/kevin-mueller/zed-csharp"
 snippets = "./snippets/csharp.json"

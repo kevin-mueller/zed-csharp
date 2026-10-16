@@ -71,7 +71,10 @@ impl RoslynOfficial {
             .ok()
             .and_then(|lsp_settings| lsp_settings.settings);
 
-        Ok(settings.map(Self::transform_settings_for_roslyn))
+        // Always send the defaults, even when the user has no settings configured.
+        Ok(Some(Self::transform_settings_for_roslyn(
+            settings.unwrap_or_default(),
+        )))
     }
 
     fn transform_settings_for_roslyn(settings: zed::serde_json::Value) -> zed::serde_json::Value {
@@ -90,6 +93,8 @@ impl RoslynOfficial {
             "csharp|inlay_hints.csharp_enable_inlay_hints_for_collection_expressions": true,
             // The test code lenses use the client-side "dotnet.test.run" command, which only exists in VS Code.
             "csharp|code_lens.dotnet_enable_tests_code_lens": false,
+            // Generate auto properties instead of throwing ones (e.g. for "Implement interface").
+            "csharp|type_members.dotnet_property_generation_behavior": "preferAutoProperties",
         });
 
         let config_map = roslyn_config.as_object_mut().unwrap();

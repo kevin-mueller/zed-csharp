@@ -1,47 +1,58 @@
 [
   {
     "label": "Open Project File",
-    "command": "zed-preview",
+    "command": "sh",
     "args": [
-      "$(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)"
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "open-project.sh"
     ],
     "reveal": "never",
     "hide": "on_success",
     "show_command": false,
-    "show_summary": false
+    "show_summary": false,
+    "env": {
+      "DOTNET_FILE": "$ZED_FILE"
+    }
   },
   {
     "label": "Build Project",
-    "command": "dotnet build $(d=\"$ZED_FILE\"; while [[ \"$d\" != \"/\" ]]; do c=$(find \"$d\" -maxdepth 1 -name \"*.csproj\" -print -quit 2>/dev/null); [[ -n \"$c\" ]] && echo \"$c\" && break; d=$(dirname \"$d\"); done)",
-    "reveal": "no_focus",
-    "hide": "never",
-    "env": {
-      "DOTNET_FILE": "$ZED_FILE"
-    },
-    "show_command": false,
-    "show_summary": false
-  },
-  {
-    "label": "Run Project",
-    "command": "dotnet",
+    "command": "sh",
     "args": [
-      "run",
-      "--project",
-      "$(d=\"$ZED_FILE\"; while [[ $d != / ]]; do c=$(find $d -maxdepth 1 -name '*.csproj' -print -quit 2>/dev/null); [[ -n $c ]] && echo $c && break; d=$(dirname $d); done)"
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "build-project.sh"
     ],
     "reveal": "no_focus",
     "hide": "never",
+    "show_command": false,
+    "show_summary": false,
     "env": {
       "DOTNET_FILE": "$ZED_FILE"
-    },
+    }
+  },
+  {
+    "label": "Run Project",
+    "command": "sh",
+    "args": [
+      "-c",
+      "'for d in \"$HOME/Library/Application Support/Zed\" \"$FLATPAK_XDG_DATA_HOME/zed\" \"$XDG_DATA_HOME/zed\" \"$HOME/.local/share/zed\"; do s=\"$d/extensions/installed/csharp/languages/csharp/scripts/$0\"; [ -f \"$s\" ] && exec sh \"$s\"; done; echo \"C# extension: task script $0 not found\" >&2; exit 1'",
+      "run-project.sh"
+    ],
+    "reveal": "no_focus",
+    "hide": "never",
     "show_command": false,
-    "show_summary": false
+    "show_summary": false,
+    "env": {
+      "DOTNET_FILE": "$ZED_FILE"
+    }
   },
   {
     "label": "Build Solution",
-    "command": "dotnet build",
+    "command": "dotnet",
     "args": [
-      "$ZED_WORKTREE_ROOT"
+      "build",
+      "'$ZED_WORKTREE_ROOT'"
     ],
     "reveal": "no_focus",
     "hide": "never",

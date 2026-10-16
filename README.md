@@ -12,7 +12,21 @@ Integrates the great work from [zed-netcoredbg](https://github.com/qwadrox/zed-n
 
 This even includes debugging support for tests. And the tests can even be started via a little ">" icon next to the test name! Crazy, right?
 
-For normal build tasks, the extension tries it's best to automatically turn them into debug tasks. If something is missing, you can always add it manually. See [configuration](https://github.com/qwadrox/zed-netcoredbg?tab=readme-ov-file#configuration). Or just run the project manually, and use zed's attach interface.
+Any `dotnet run` or `dotnet test` task can be debugged, including your own tasks in `.zed/tasks.json`:
+
+```jsonc
+{
+  "label": "Run Api (Test)",
+  "command": "dotnet run",
+  "args": ["--project", "src/Api/Api.csproj", "--launch-profile", "test-Console", "--configuration", "DebugNoErrors"]
+}
+```
+
+Before launching, the project is built the way the task would build it (`--configuration`, `--framework`, `-p:` properties, `--no-build`), and the output assembly is queried from MSBuild (requires the .NET 8 SDK or newer). Build errors are reported instead of silently debugging an old build. Multi-targeting projects use their first target framework unless the task sets `--framework`.
+
+Launch profiles from `Properties/launchSettings.json` are applied like `dotnet run` applies them: `--launch-profile`, or else the first profile with `"commandName": "Project"` (`--no-launch-profile` disables them). Their `environmentVariables`, `applicationUrl` (as `ASPNETCORE_URLS`) and `commandLineArgs` are used, and `-e NAME=VALUE` and arguments after `--` work as well. Unlike `dotnet run`, the profile's `workingDirectory` is respected, like in Visual Studio and Rider. Otherwise the program runs in the task's working directory.
+
+If something is missing, you can always add it manually. See [configuration](https://github.com/qwadrox/zed-netcoredbg?tab=readme-ov-file#configuration). Or just run the project manually, and use zed's attach interface.
 
 ### Razor Support
 
@@ -32,12 +46,24 @@ These include:
 - Test Project
 - Build Solution
 - Test Solution
+- Fill Empty File With Type Declaration
 
 (the appropriate csproj file is resolved automatically)
 
+The task logic lives in POSIX `sh` scripts in [`languages/csharp/scripts`](languages/csharp/scripts), so the tasks work the same in bash, zsh, fish & co. on macOS and Linux. Each task only contains a short one-liner that locates the script in Zed's data directory (`~/Library/Application Support/Zed` on macOS, `$XDG_DATA_HOME/zed` / `~/.local/share/zed` on Linux). A custom `--user-data-dir` is not supported.
+
+**Fill Empty File With Type Declaration** tries to fill an empty file with the relevant boilerplate (namespace & class name). A task is not really the best solution for this, but the only one that works, as Zed's snippets are pretty limited.
+
 ### Snippets!
 
-There are some very basic snippets that make the creation of new classes or interfaces easier. More coming soon™. Contributions welcome!
+Snippets for the most common declarations and statements: `cls`, `inf`, `ctor`, `prop`, `test`, `foreach`, `for`, `try` and `summary`. Some of them offer choices (e.g. `class` / `sealed class` / `static class`) when you tab to that placeholder.
+
+### Editor Integration
+
+- **Inline values while debugging**: variable values are shown next to the code while stopped at a breakpoint.
+- **Text objects**: classes, structs, records, interfaces, enums, extension blocks, methods, constructors, operators, accessors, local functions and lambdas (e.g. vim `vaf` / `vic`).
+- **Outline**: includes enum members, delegates, events, operators, indexers, local functions and C# 14 extension blocks. Doc comments are attached to their member.
+- **Block comments**: `/* */` comment toggling, `* ` continuation and string/comment-aware bracket auto-closing.
 
 ### Offline Support
 
@@ -94,9 +120,7 @@ I'm using the preview version of Zed, but you don't have to.
         "csharp|background_analysis.dotnet_analyzer_diagnostics_scope": "fullSolution",
         "csharp|background_analysis.dotnet_compiler_diagnostics_scope": "fullSolution",
         // sort and remove unnecessary usings when formatting
-        "csharp|formatting.dotnet_organize_imports_on_format": true,
-        // generate auto properties instead of throwing ones (e.g. for "Implement interface")
-        "csharp|type_members.dotnet_property_generation_behavior": "preferAutoProperties"
+        "csharp|formatting.dotnet_organize_imports_on_format": true
       }
     }
   }
@@ -106,10 +130,10 @@ I'm using the preview version of Zed, but you don't have to.
 ## What's missing?
 
 This extension is far from perfect. Here are a couple caveats:
-1. Windows support! I never tested this on Windows, only Linux and MacOS. I think the biggest problem are the custom bash commands this extension relies on. Adding Windows support should be doable though.
+1. Windows support! I never tested this on Windows, only Linux and MacOS. The tasks rely on POSIX `sh` scripts, and the debugger integration on `find` / `cat`. Adding Windows support should be doable though.
 2. The razor syntax highlighting is still a bit wonky. Especially the html syntax injection. My custom [tree-sitter fork](https://github.com/kevin-mueller/tree-sitter-razor) does solve some problems from the original one, but it should be mentioned that I have zero knowledge about tree sitter syntax. Improvements here would be very welcome!
 3. The official Roslyn LSP is very new. Occasionally, the server crashes and has to be restarted. That said, it works pretty well for large code bases (~100 Projects) and much more reliably than the other LSPs I've tried.
-4. LaunchProfiles are not yet supported. I'm not sure if it's possible with the current state of the zed extension framework. For now you'll have to define project tasks manually. For how to do that via debugging, check the original [zed-netcoredbg readme](https://github.com/qwadrox/zed-netcoredbg?tab=readme-ov-file#configuration).
+4. Launch profiles are only applied when debugging; there is no picker for them yet. Define a task with `--launch-profile` per profile you want to start.
 5. LSP's are communicating with Zed via stdio, instead of named pipes. The roslyn language server would actually support named pipes, but I think Zed doesn't yet. Something to keep an eye on.
 
 ---
@@ -126,7 +150,6 @@ The extension requires multiple binaries to work properly. Managing them is a bi
 1. The roslyn-lanuage-server dotnet tool. This is actually pretty ok to manage, because the extension can just install & update it via the dotnet command. Still, it has the problem of installing / updating a gloabl tool, outside of the scope of the extension.
    The razor LSP functionality (`Microsoft.VisualStudioCode.RazorExtension.dll`, the razor compiler and design time targets) ships with the roslyn-language-server package and is loaded automatically.
 2. The `vscode-html-language-server` executable. It is used by the html-in-razor, which is required to get the html lsp working inside of .razor files. It is currently provided the exact same way the official, bundled html extension does it. Which is via npm.
-3. The "Open Project" command is currently hard-coded to use the `zed-preview` executable. If you don't use the preview, you could add an alias, or simply change it in the tasks.json file in the csharp language folder.
 
 **Build Context Resolution**
 

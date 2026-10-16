@@ -1,9 +1,10 @@
 [
   {
     "label": "Build Current Project",
-    "command": "dotnet build",
+    "command": "dotnet",
     "args": [
-      "$ZED_FILE"
+      "build",
+      "'$ZED_FILE'"
     ],
     "reveal": "no_focus",
     "hide": "never",
@@ -16,7 +17,7 @@
     "args": [
       "run",
       "--project",
-      "$ZED_FILE"
+      "'$ZED_FILE'"
     ],
     "reveal": "no_focus",
     "hide": "never",
@@ -31,7 +32,7 @@
     "command": "dotnet",
     "args": [
       "test",
-      "$ZED_FILE"
+      "'$ZED_FILE'"
     ],
     "reveal": "no_focus",
     "hide": "never",
@@ -43,9 +44,10 @@
   },
   {
     "label": "Build Solution",
-    "command": "dotnet build",
+    "command": "dotnet",
     "args": [
-      "$ZED_WORKTREE_ROOT"
+      "build",
+      "'$ZED_WORKTREE_ROOT'"
     ],
     "reveal": "no_focus",
     "hide": "never",
